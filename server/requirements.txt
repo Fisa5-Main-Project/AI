@@ -1,0 +1,19 @@
+fastapi
+uvicorn[standard]
+
+# --- LangChain & LLM (Gemini) ---
+langchain
+langchain-google-genai
+google-generativeai
+
+# --- LangChain & VectorDB (MongoDB) ---
+langchain-mongodb
+pymongo
+
+# --- LangChain & Embedding Model ---
+langchain-huggingface
+sentence-transformers
+
+# --- Configuration (.env loading) ---
+pydantic-settings
+python-dotenv

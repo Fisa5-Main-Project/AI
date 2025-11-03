@@ -76,6 +76,4 @@ AI Server (FastAPI): 8302
 
 MongoDB: 8304
 
-MySQL: 8305
-
 Airflow UI: 8310

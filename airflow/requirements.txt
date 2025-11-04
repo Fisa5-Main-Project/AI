@@ -1,8 +1,5 @@
 requests
 pandas
-beautifulsoup4
-lxml
-
 pymongo
 sqlalchemy
 mysql-connector-python

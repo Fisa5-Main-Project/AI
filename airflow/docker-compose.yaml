@@ -48,8 +48,8 @@ x-airflow-common: &airflow-common
     # In order to add custom dependencies or upgrade provider distributions you can use your extended image.
     # Comment the image line, place your Dockerfile in the directory where you placed the docker-compose.yaml
     # and uncomment the "build" line below, Then run `docker-compose build` to build the images.
-    image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:3.1.1}
-    # build: .
+    # image: apache/airflow:3.1.1
+    build: .
     env_file:
         - ${ENV_FILE_PATH:-.env}
     environment: &airflow-common-env
@@ -60,8 +60,8 @@ x-airflow-common: &airflow-common
         AIRFLOW__CELERY__BROKER_URL: redis://:@redis:6379/0
         AIRFLOW__CORE__FERNET_KEY: ''
         AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
-        AIRFLOW__CORE__LOAD_EXAMPLES: 'true'
-        AIRFLOW__CORE__EXECUTION_API_SERVER_URL: 'http://airflow-apiserver:8310/execution/'
+        AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+        AIRFLOW__CORE__EXECUTION_API_SERVER_URL: 'http://airflow-apiserver:8081/execution/'
         # yamllint disable rule:line-length
         # Use simple http server on scheduler for health checks
         # See https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/logging-monitoring/check-health.html#scheduler-health-check-server
@@ -69,7 +69,7 @@ x-airflow-common: &airflow-common
         AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
         # WARNING: Use _PIP_ADDITIONAL_REQUIREMENTS option ONLY for a quick checks
         # for other purpose (development, test and especially production usage) build/extend Airflow image.
-        _PIP_ADDITIONAL_REQUIREMENTS: ${_PIP_ADDITIONAL_REQUIREMENTS:-}
+        _PIP_ADDITIONAL_REQUIREMENTS: ''
         # The following line can be used to set a custom config file, stored in the local config folder
         AIRFLOW_CONFIG: '/opt/airflow/config/airflow.cfg'
     volumes:
@@ -114,17 +114,28 @@ services:
             start_period: 30s
         restart: always
 
+    mongo:
+        image: mongo:latest
+        ports:
+            - '8304:27017'
+        volumes:
+            - mongo-db-volume:/data/db
+        restart: always
+
     airflow-apiserver:
         <<: *airflow-common
+        environment:
+            <<: *airflow-common-env
+            AIRFLOW__API__PORT: '8081' # <--- (수정) 다음 줄로 내리고 들여쓰기 맞춤
         command: api-server
         ports:
-            - '8310:8310'
+            - '8081:8081'
         healthcheck:
-            test: ['CMD', 'curl', '--fail', 'http://localhost:8310/api/v2/version']
+            test: ['CMD', 'curl', '--fail', 'http://localhost:8081/api/v2/monitor/health']
             interval: 30s
             timeout: 10s
             retries: 5
-            start_period: 30s
+            start_period: 300s
         restart: always
         depends_on:
             <<: *airflow-common-depends-on
@@ -181,10 +192,10 @@ services:
         restart: always
         depends_on:
             <<: *airflow-common-depends-on
-            airflow-apiserver:
-                condition: service_healthy
             airflow-init:
                 condition: service_completed_successfully
+            airflow-apiserver:
+                condition: service_healthy
 
     airflow-triggerer:
         <<: *airflow-common
@@ -200,6 +211,25 @@ services:
             <<: *airflow-common-depends-on
             airflow-init:
                 condition: service_completed_successfully
+
+    airflow-webserver:
+        <<: *airflow-common
+        command: webserver
+        ports:
+            - '8080:8080'
+        healthcheck:
+            test: ['CMD', 'curl', '--fail', 'http://localhost:8080/health']
+            interval: 30s
+            timeout: 10s
+            retries: 5
+            start_period: 30s
+        restart: always
+        depends_on:
+            <<: *airflow-common-depends-on
+            airflow-init:
+                condition: service_completed_successfully
+            airflow-apiserver:
+                condition: service_healthy
 
     airflow-init:
         <<: *airflow-common
@@ -332,3 +362,4 @@ services:
 
 volumes:
     postgres-db-volume:
+    mongo-db-volume:
